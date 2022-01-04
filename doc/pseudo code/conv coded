@@ -1,0 +1,18 @@
+Convolution 1st: w = 1,   h = 28, c= 28, w' = 256, h' = 9, c' = 9, h'' = 20, c'' = 20, S = 1
+            2nd: w = 256, h = 20, c= 20, w' = 256, h' = 9, c' = 9, h'' = 6,  c'' = 6,  S = 2
+    Input:  input feature   I(w x h x c)
+            stride          S
+            kernel          K(w' x w x h' x c')
+            bias            B(w') 
+    Output: output feature O(w' x  h'' x c'')
+    for k from 0 to w'-1                                    //Loop 0: O(↗)
+        for i from 0 to h''-1                               //Loop 1: O(↓)
+            for j from 0 to c''-1                           //Loop 2: O(→)
+                O(k x h'' x c''+ i x c'' + j) = B(k);
+    for p from 0 to w-1                                     //Loop 0: I(↗)
+        for i from 0 to h''-1                               //Loop 1: O(↓)
+            for j from 0 to c''-1                           //Loop 2: O(→)
+                for k from 0 to w'-1                        //Loop 3: O(↗)
+                    for l from 0 to h'-1                    //Loop 4: K(↓)
+                        for m from 0 to c'-1                //Loop 4: K(→)
+                            O(k x h'' x c''+ i x c'' + j) += I(p x h x c + (i x S + l) x c + j x S + m) x K(k x w x h' x c' + p x h' x c' + l x c' + m)

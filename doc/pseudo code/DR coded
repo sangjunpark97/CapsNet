@@ -1,0 +1,46 @@
+Dynamic_Rounting(Primary_Caps, Weight)	
+		
+
+input:	input feature Primary_Caps(1152 x 8)
+output:	output feature u_hat(16*10*1152)
+	for j from 0 to 1152-1 do																▷ Loop 0: O(→)
+		for p from 0 to 10-1 do																▷ Loop 1: Weight(↗)
+			for i from 0 to 8-1 do															▷ Loop 2: O(↓) 
+				BUFFER_S(64bit) ← Primary_Caps[(i+8*t)*1152+j] : load to buffer  
+			for t from 0 to 2-1 do															▷ Loop 3: Weight(↓)
+				for w from 0 to 8-1 do														▷ Loop 4: Weight(→)
+					for k from 0 to 8-1 do													▷ Loop 5: Weight(↓)
+						BUFFER_W(64bit) ← Weight[k+(w+8*t)*8+p+16*8+j*8*16*10] : load to buffer 
+					// Primary_Caps의 1152*n(n은 from 0 to 7) 번째를 BUFFER에 먼저 넣는다.
+					// S_j를 만들때 Weight가 8bit x 8 (64bit)가 한번 연산에 쓰이는데 이런 64bit가 160번
+					// Update되는 동안 Primary_Caps의 데이터가 재사용된다. 
+				for all values in BUFFER : ACCUMULATOR[0...7] ← BUFFER_S[0...7] * BUFFER_W[0...7]	
+												// parallel Multiplicate by H/W
+												// 64bit의 data가 동시에 저장.(8개의 값)
+	// O(u_hat=16*10*1152)의 one element만 parallel하게 계산한다.
+	
+input:	input feature u_hat(16*10*1152)
+output:	output feature S_j(16*10)
+	for w` from 0 to 160-1 do																▷ Loop 6: S_j(→)
+		for h` from 0 to 1152-1 do															▷ Loop 7: S_j(↓)
+			S_j[w`] += u_hat[h`*160+w`]*0.1
+
+
+input:	input feature S_j(16*10)
+output:	output feature L1(16), L8(16)
+	for w`` from 0 to 16-1 do																▷ Loop 8: L1(↓), L8(↓)
+		for h`` from 0 to 10-1 do	                                                        ▷ Loop 9: L1(→), L8(→)
+			L1[w``] += S_j[h``*16+w``]
+			L8[w``] ← max{S_j[h``*16 + w``]}  // 비교기(L8에 max값을 점차 업데이트 해나감.)
+	L1 ← L1 x 0.448F
+	
+input:	input feature L1(16), L8(16)
+output:	output feature L2(16)
+	for all values in BUFFER : BUFFER_L2[0...15] ← STORE_L1[0...15] + STORE_L8[0...15] x 0.450F
+		// parallel adder
+	
+input:	input feature L1(16), L8(16)
+output:	output feature V_j(16*10)
+	for a from 0 to 10-1 do                                                                 ▷ Loop 10: V_j(↓)
+		for b from 0 to 16-1 do                                                             ▷ Loop 11: V_j(→)
+			V_j[b+a*16] ← S_j[b+a*16] x L2[b]
